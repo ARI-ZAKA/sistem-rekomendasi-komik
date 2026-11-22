@@ -11,6 +11,15 @@ st.set_page_config(
 )
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "goodreads_comics_cleaned.xlsx")
+GENERIC_TAG_WORDS = {"comics", "cómics", "graphic", "novels", "novel", "comic", "books", "book"}
+
+
+def format_tags(shelves_text: str) -> str:
+    seen = []
+    for w in str(shelves_text).lower().split():
+        if w not in GENERIC_TAG_WORDS and w not in seen and len(w) > 1:
+            seen.append(w)
+    return ", ".join(seen) if seen else "-"
 
 
 @st.cache_data(show_spinner="Memuat dataset komik...")
@@ -36,7 +45,7 @@ def build_tfidf(texts: pd.Series):
 def get_recommendations(df: pd.DataFrame, tfidf_matrix, selected_title: str, top_n: int = 10) -> pd.DataFrame:
     idx = df.index[df["title"] == selected_title][0]
     sim_scores = cosine_similarity(tfidf_matrix[idx], tfidf_matrix).flatten()
-    sim_scores[idx] = -1  # kecualikan komik yang dipilih sendiri
+    sim_scores[idx] = -1
     top_indices = sim_scores.argsort()[::-1][:top_n]
     results = df.iloc[top_indices].copy()
     results["similarity"] = (sim_scores[top_indices] * 100).round(2)
@@ -78,7 +87,7 @@ if selected_title:
         with col2:
             st.metric("Rating Rata-rata", f"⭐ {selected_row['average_rating']:.2f}")
             st.metric("Jumlah Rating", f"{int(selected_row['ratings_count']):,}")
-            st.caption(f"**Genre/Tag:** {selected_row['shelves']}")
+            st.caption(f"**Genre/Tag:** {format_tags(selected_row['shelves'])}")
             st.link_button(
                 "Lihat di Goodreads ↗",
                 f"https://www.goodreads.com/book/show/{selected_row['book_id']}",
@@ -97,7 +106,7 @@ if selected_title:
                         st.image(row["image_url"], width=100)
                 with c1:
                     st.markdown(f"**{rank}. {row['title']}**")
-                    st.caption(f"Genre/Tag: {row['shelves']}")
+                    st.caption(f"Genre/Tag: {format_tags(row['shelves'])}")
                     with st.expander("Lihat Sinopsis"):
                         st.write(row["description"])
                 with c2:
